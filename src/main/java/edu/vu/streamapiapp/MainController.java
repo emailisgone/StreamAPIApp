@@ -1,16 +1,17 @@
 package edu.vu.streamapiapp;
 
 import javafx.beans.InvalidationListener;
-import javafx.collections.FXCollections;
-import javafx.collections.ListChangeListener;
-import javafx.collections.ObservableList;
+import javafx.collections.*;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.*;
-import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.control.cell.*;
 
 import java.net.URL;
+import java.time.*;
+import java.time.format.*;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class MainController implements Initializable {
     @FXML private Button loadDataButton;
@@ -51,8 +52,9 @@ public class MainController implements Initializable {
         loadDataButton.setOnAction(e -> loadCsvFiles());
         dateFilterButton.setOnAction(e -> filterByDate());
         resetAllFiltersButton.setOnAction(e -> resetAllFiltersAndSorts());
+        stringSortButton.setOnAction(e -> sortByString());
+        numericalSortButton.setOnAction(e -> sortNumeric());
     }
-
     private void initComboBoxes(){
         numericalComboBox.setItems(FXCollections.observableArrayList("ID"));
         numericalComboBox.getSelectionModel().selectFirst();
@@ -97,12 +99,10 @@ public class MainController implements Initializable {
 
         service3.setOnSucceeded(e -> {
             dataTableView.getItems().addAll(service3.getValue());
+            initialData.addAll(dataTableView.getItems());
         });
 
         service1.start();
-
-
-        initialData.addAll(dataTableView.getItems());
     }
     private void filterByDate(){
         if(dataTableView.getItems().isEmpty()){
@@ -111,7 +111,97 @@ public class MainController implements Initializable {
         }
         if(startDatePicker.getValue() == null || endDatePicker.getValue() == null){
             customError("Start date and end date must both be picked.");
+            return;
         }
+
+        LocalDate startDate = startDatePicker.getValue();
+        LocalDate endDate = endDatePicker.getValue();
+
+        try {
+            ObservableList<Person> filteredData = dataTableView.getItems().stream()
+                    .filter(person -> {
+                        LocalDate birthDate = LocalDate.parse(person.getBirthDate());
+                        return !birthDate.isBefore(startDate) && !birthDate.isAfter(endDate);
+                    })
+                    .collect(Collectors.toCollection(FXCollections::observableArrayList));
+
+            dataTableView.setItems(filteredData);
+        } catch (DateTimeParseException e) {
+            customError("Birth date is not in the correct format: " + e.getMessage());
+        }
+    }
+
+    private void sortByString(){
+        if(dataTableView.getItems().isEmpty()){
+            customError("Cannot operate while data is not set.");
+            return;
+        }
+
+        String sortField = stringComboBox.getValue().toString();
+        boolean ascending = aToZRadioButton.isSelected();
+
+        ObservableList<Person> sortedData = dataTableView.getItems().stream()
+                .sorted((p1, p2) -> {
+                    String value1 = "", value2 = "";
+                    switch (sortField) {
+                        case "First Name":
+                            value1 = p1.getFirstName();
+                            value2 = p2.getFirstName();
+                            break;
+                        case "Last Name":
+                            value1 = p1.getLastName();
+                            value2 = p2.getLastName();
+                            break;
+                        case "Email":
+                            value1 = p1.getEmail();
+                            value2 = p2.getEmail();
+                            break;
+                        case "Gender":
+                            value1 = p1.getGender();
+                            value2 = p2.getGender();
+                            break;
+                        case "Country":
+                            value1 = p1.getCountry();
+                            value2 = p2.getCountry();
+                            break;
+                        case "Domain":
+                            value1 = p1.getDomain();
+                            value2 = p2.getDomain();
+                            break;
+                        case "Birth Date":
+                            value1 = p1.getBirthDate();
+                            value2 = p2.getBirthDate();
+                            break;
+                    }
+                    return ascending ? value1.compareTo(value2) : value2.compareTo(value1);
+                })
+                .collect(Collectors.toCollection(FXCollections::observableArrayList));
+
+        dataTableView.setItems(sortedData);
+    }
+    private void sortNumeric(){
+        if(dataTableView.getItems().isEmpty()){
+            customError("Cannot operate while data is not set.");
+            return;
+        }
+
+        String sortField = numericalComboBox.getValue().toString();
+        boolean ascending = ascRadioButton.isSelected();
+
+        ObservableList<Person> sortedData = dataTableView.getItems().stream()
+                .sorted((p1, p2) -> {
+                    int value1 = 0, value2 = 0;
+                    switch (sortField) {
+                        case "ID":
+                            value1 = p1.getId();
+                            value2 = p2.getId();
+                            break;
+                    }
+                    return ascending ? Integer.compare(value1, value2) : Integer.compare(value2, value1);
+                })
+                .collect(Collectors.toCollection(FXCollections::observableArrayList));
+
+        dataTableView.setItems(sortedData);
     }
 
     private void customError(String errorMsg){
@@ -120,13 +210,11 @@ public class MainController implements Initializable {
         errorAlert.setContentText(errorMsg);
         errorAlert.showAndWait();
     }
-
     private void resetAllFiltersAndSorts(){
         if(dataTableView.getItems().isEmpty()){
             customError("Cannot operate while data is not set.");
             return;
         }
-        dataTableView.getItems().clear();
         dataTableView.getItems().setAll(initialData);
     }
 }
