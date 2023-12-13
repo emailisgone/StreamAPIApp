@@ -11,6 +11,7 @@ import java.net.URL;
 import java.time.*;
 import java.time.format.*;
 import java.util.*;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 public class MainController implements Initializable {
@@ -44,9 +45,6 @@ public class MainController implements Initializable {
         initTableView();
         initToggleGroups();
         initSetOnActions();
-
-
-
     }
     private void initSetOnActions(){
         loadDataButton.setOnAction(e -> loadCsvFiles());
@@ -117,20 +115,17 @@ public class MainController implements Initializable {
         LocalDate startDate = startDatePicker.getValue();
         LocalDate endDate = endDatePicker.getValue();
 
-        try {
-            ObservableList<Person> filteredData = dataTableView.getItems().stream()
-                    .filter(person -> {
-                        LocalDate birthDate = LocalDate.parse(person.getBirthDate());
-                        return !birthDate.isBefore(startDate) && !birthDate.isAfter(endDate);
-                    })
-                    .collect(Collectors.toCollection(FXCollections::observableArrayList));
+        Predicate<Person> predicate = person -> {
+            LocalDate birthDate = LocalDate.parse(person.getBirthDate());
+            return !birthDate.isBefore(startDate) && !birthDate.isAfter(endDate);
+        };
 
-            dataTableView.setItems(filteredData);
-        } catch (DateTimeParseException e) {
-            customError("Birth date is not in the correct format: " + e.getMessage());
-        }
+        ObservableList<Person> filteredData = dataTableView.getItems().stream()
+                .filter(predicate)
+                .collect(Collectors.toCollection(FXCollections::observableArrayList));
+
+        dataTableView.setItems(filteredData);
     }
-
     private void sortByString(){
         if(dataTableView.getItems().isEmpty()){
             customError("Cannot operate while data is not set.");
@@ -203,7 +198,6 @@ public class MainController implements Initializable {
 
         dataTableView.setItems(sortedData);
     }
-
     private void customError(String errorMsg){
         Alert errorAlert = new Alert(Alert.AlertType.ERROR);
         errorAlert.setHeaderText("Error");
